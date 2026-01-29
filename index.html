@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>In-App Report Generator | Programmatic</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <h2>Настройки отчета</h2>
+            
+            <div class="input-group">
+                <label>Общий объем показов</label>
+                <input type="text" id="total-imps" placeholder="Напр: 1 000 000" oninput="formatInput(this)" autocomplete="off">
+            </div>
+
+            <div class="input-group">
+                <label>Общее кол-во кликов</label>
+                <input type="text" id="total-clicks" placeholder="Напр: 15 000" oninput="formatInput(this)" autocomplete="off">
+            </div>
+
+            <div class="input-group">
+                <label>Отображение данных</label>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="font-weight: 400; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="show-video-stats" style="width: auto;" onchange="toggleColumns()"> 
+                        Показать Досмотры/VTR
+                    </label>
+                    <label style="font-weight: 400; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="show-finance-stats" style="width: auto;" onchange="toggleColumns()"> 
+                        Показать Бюджет
+                    </label>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Общие досмотры</label>
+                <input type="text" id="total-views" placeholder="Напр: 50 000" oninput="formatInput(this)" autocomplete="off">
+            </div>
+
+            <div class="input-group">
+                <label>Модель закупки (для расчета)</label>
+                <div class="row-inputs">
+                    <select id="bid-model">
+                        <option value="CPM">CPM</option>
+                        <option value="CPC">CPC</option>
+                        <option value="CPV">CPV</option> 
+                    </select>
+                    <input type="text" id="bid-rate" placeholder="Ср. ставка" oninput="formatInput(this, true)" autocomplete="off"> 
+                </div>
+            </div>
+
+            <div class="input-group">
+    <label>Общий бюджет (Тотал)</label>
+    <input type="text" id="total-budget" placeholder="Напр: 500 000" oninput="formatInput(this)" autocomplete="off">
+</div>
+
+            <hr class="separator-line">
+
+            <div class="input-group">
+                <label>Фильтр ОС</label>
+                <div class="os-segmented-control">
+                    <input type="radio" id="os-all" name="os-filter" value="all" checked>
+                    <label for="os-all">Все</label>
+                    <input type="radio" id="os-android" name="os-filter" value="Android">
+                    <label for="os-android">Android</label>
+                    <input type="radio" id="os-ios" name="os-filter" value="iOS">
+                    <label for="os-ios">iOS</label>
+                </div>
+            </div>
+
+            <div id="global-categories-ui">
+                <div id="category-container">
+                    <label>Добавить категории</label>
+                    <div class="category-row">
+                        <div class="row-inputs" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <select class="cat-select"><option value="">Загрузка...</option></select>
+                            <input type="number" class="cat-percent" placeholder="%" autocomplete="off">
+                            <span class="btn-remove" style="cursor:pointer; color:#ef4444; font-size:20px; font-weight:bold; padding:0 5px;" onclick="removeCategoryRow(this)">×</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn-add" onclick="addCategoryRow()">+ Добавить категорию</button>
+                <div id="total-percent-warn" style="font-size: 11px; margin-top: 5px; color: var(--text-light);">
+                    Итого: <span id="current-total-percent">0</span>% из 100%
+                </div>
+            </div>
+
+            <hr class="separator-line">
+
+            <div class="mode-buttons">
+                <button type="button" id="btn-global" class="mode-btn active" onclick="setMode('global')">База</button>
+                <button type="button" id="btn-whitelist" class="mode-btn" onclick="setMode('whitelist')">Whitelist</button>
+            </div>
+
+            <div id="global-stats-box" style="margin-bottom:15px; font-size:12px; color:var(--text-light);">
+                В базе: <span id="stat-total-apps">0</span> прил.
+            </div>
+
+            <div id="whitelist-content-section" style="display: none;">
+                <div class="input-group">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label style="margin-bottom: 0;">Загрузить файл</label>
+                            <div class="info-tooltip">
+                                <span class="info-icon">!</span>
+                                <div class="tooltip-text">
+                                    <strong>Тех. требования:</strong><br>
+                                    • Столбец А: Название приложения<br>
+                                    • Столбец B: Ссылка<br>
+                                    • Формат: Excel (.xlsx)<br>
+                                </div>
+                            </div>
+                        </div>
+                        <span style="cursor:pointer; color:#ef4444; font-size:20px; font-weight:bold;" onclick="clearWhitelist()" title="Очистить вайтлист">×</span>
+                    </div>
+                    
+                    <input type="file" id="upload-excel" accept=".xlsx, .xls, .csv" autocomplete="off">
+                    <div id="upload-status" style="font-size:11px; color:#10b981; margin-top:5px;"></div>
+                </div>
+                <div class="input-group">
+                    <label>Ручной ввод (Имя, Ссылка)</label>
+                    <textarea id="whitelist" placeholder="App Name, https://..." autocomplete="off"></textarea>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Исключить категории</label>
+                <div id="minus-category-container">
+                    <div class="minus-category-row">
+                        <select class="minus-cat-select"></select>
+                    </div>
+                </div>
+                <button class="btn-add-minus" onclick="addMinusCategoryRow()">+ Еще исключение</button>
+            </div>
+
+            <div class="input-group">
+                <label>Blacklist (Bundles)</label>
+                <textarea id="blacklist" placeholder="com.app.id, 1234567" autocomplete="off"></textarea>
+            </div>
+
+            <div class="sidebar-actions">
+                <button class="btn-primary" onclick="generateReport()">Сформировать отчет</button>
+                <button class="btn-secondary" onclick="reshuffleStats()" style="margin-top: 10px; width: 100%; padding: 10px; border: 1px solid var(--border); background: white; border-radius: 10px; cursor: pointer; font-weight: 600;">Перемешать показатели</button>
+                <button class="btn-reset" onclick="resetAll()">Очистить всё</button>
+            </div>
+        </aside>
+
+        <main class="content">
+            <h1>Отчет по размещениям</h1>
+            <p id="report-date" style="margin-bottom:30px; color:var(--text-light);"></p>
+
+            <div class="stats-cards">
+                <div class="card"><span class="label">Показы</span><span class="value" id="res-imps">0</span></div>
+                <div class="card"><span class="label">Клики</span><span class="value" id="res-clicks">0</span></div>
+                <div class="card"><span class="label">CTR</span><span class="value" id="res-ctr">0%</span></div>
+                <div class="card col-finance"><span class="label">Итого бюджет</span><span class="value" id="res-budget">0</span></div>
+            </div>
+
+            <button class="btn-export" onclick="exportToExcel()">Скачать Excel</button>
+
+            <div class="table-container">
+                <table id="app-table">
+                    <thead>
+                        <tr>
+                            <th>Приложение</th>
+                            <th>Store Link</th>
+                            <th style="text-align:right">Показы</th>
+                            <th style="text-align:right">Клики</th>
+                            <th style="text-align:center">CTR</th>
+                            <th class="col-video" style="text-align:right">Досмотры</th>
+                            <th class="col-video" style="text-align:center">VTR</th>
+                            <th class="col-finance" style="text-align:right">Ставка</th>
+                            <th class="col-finance" style="text-align:right">Бюджет</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
